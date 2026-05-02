@@ -1,0 +1,22 @@
+{
+  "crew": [
+    {
+      "name": "Энди",
+      "surname": "Уир",
+      "photo": "img/adult.png",
+      "specialties": ["специалист по радиационной защите", "астрогеолог"]
+    },
+    {
+      "name": "Марк",
+      "surname": "Уотни",
+      "photo": "img/child.png",
+      "specialties": ["биолог", "инженер", "астронавт"]
+    },
+    {
+      "name": "Ридли",
+      "surname": "Скотт",
+      "photo": "img/child.png",
+      "specialties": ["строитель", "профессионал своего дела"]
+    }
+  ]
+}

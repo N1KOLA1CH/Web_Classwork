@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h2 class='text-center'>Оформление каюты</h2>
+    <table class='table table-bordered mt-3' style='width: 80%; margin: auto;'>
+        <thead>
+            <tr class='table-secondary'>
+                <th scope='col'>Цвет стен</th>
+                <th scope='col'>Эмблема</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style='width: 50%; height: 300px; background-color: 
+                    {% if sex == "male" %}
+                        {% if age < 21 %}#b0c4de{% else %}#1e90ff{% endif %}
+                    {% else %}
+                        {% if age < 21 %}#ffa07a{% else %}#ff4500{% endif %}
+                    {% endif %};'>
+                </td>
+                <td class='text-center'>
+                    {% if age < 21 %}
+                        <img src="{{ url_for('static', filename='img/child.png') }}" alt='child'>
+                    {% else %}
+                        <img src="{{ url_for('static', filename='img/adult.png') }}" alt='adult'>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}

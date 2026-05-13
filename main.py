@@ -1,9 +1,13 @@
-from flask import Flask, render_template, redirect
-from flask_login import LoginManager, login_user, login_required, logout_user
+from flask import Flask, render_template, redirect, abort, request
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
 from data import db_session
+from data.category import Category
+from data.departments import Department
 from data.jobs import Jobs
 from data.users import User
+from forms import job
+from forms.departament import DepartmentForm
 from forms.job import JobsForm
 from forms.login import LoginForm
 from forms.user import RegisterForm
@@ -124,6 +128,28 @@ def reqister():
     return render_template('register.html', title='Регистрация', form=form)
 
 
+def init_data_with_categories():
+    db_sess = db_session.create_session()
+    if not db_sess.query(Category).first():
+        c1 = Category(name="1")
+        c2 = Category(name="2")
+        c3 = Category(name="3")
+        db_sess.add_all([c1, c2, c3])
+        db_sess.commit()
+
+    all_jobs = db_sess.query(Jobs).all()
+    all_cats = db_sess.query(Category).all()
+
+    if len(all_jobs) >= 4 and len(all_cats) >= 3:
+        if not all_jobs[0].categories:
+            all_jobs[0].categories.append(all_cats[2])
+        if not all_jobs[1].categories:
+            all_jobs[1].categories.append(all_cats[0])
+        if not all_jobs[2].categories:
+            all_jobs[2].categories.append(all_cats[2])
+        if not all_jobs[3].categories:
+            all_jobs[3].categories.append(all_cats[1])
+        db_sess.commit()
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -152,27 +178,180 @@ def logout():
 def addjob():
     form = JobsForm()
     db_sess = db_session.create_session()
+    categories = db_sess.query(Category).all()
+    form.category.choices = [(c.id, c.name) for c in categories]
     users = db_sess.query(User).all()
-    choices = [(0, 'Select ID')] + [(u.id, str(u.id)) for u in users]
-    form.team_leader.choices = choices
+    form.team_leader.choices = [(u.id, f"{u.surname} {u.name}") for u in users]
+    if request.method == 'GET':
+        form.team_leader.data = current_user.id
     if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        jobs = Jobs()
-        jobs.job = form.job.data
-        jobs.team_leader = form.team_leader.data
-        jobs.work_size = form.work_size.data
-        jobs.collaborators = form.collaborators.data
-        jobs.is_finished = form.is_finished.data
-        db_sess.add(jobs)
+        job = Jobs(
+            job=form.job.data,
+            team_leader=form.team_leader.data,
+            work_size=form.work_size.data,
+            collaborators=form.collaborators.data,
+            is_finished=form.is_finished.data
+        )
+        selected_category = db_sess.query(Category).get(form.category.data)
+        if selected_category:
+            job.categories.append(selected_category)
+        db_sess.add(job)
         db_sess.commit()
         return redirect('/')
-    return render_template('addjobs.html', form=form)
+    return render_template('add_job.html', title='Adding a Job', form=form)
+
+
+@app.route('/jobs/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_job(id):
+    form = JobsForm()
+    db_sess = db_session.create_session()
+    job = db_sess.query(Jobs).filter(Jobs.id == id).first()
+
+    if not job:
+        abort(404)
+
+    if int(job.team_leader) != int(current_user.id) and int(current_user.id) != 1:
+        abort(403)
+    users = db_sess.query(User).all()
+    form.team_leader.choices = [(u.id, f"{u.surname} {u.name}") for u in users]
+
+    categories = db_sess.query(Category).all()
+    form.category.choices = [(c.id, c.name) for c in categories]
+
+    if request.method == "GET":
+        form.job.data = job.job
+        form.team_leader.data = job.team_leader
+        form.work_size.data = job.work_size
+        form.collaborators.data = job.collaborators
+        form.is_finished.data = job.is_finished
+        if job.categories:
+            form.category.data = job.categories[0].id
+
+    if form.validate_on_submit():
+        job.job = form.job.data
+        job.team_leader = form.team_leader.data
+        job.work_size = form.work_size.data
+        job.collaborators = form.collaborators.data
+        job.is_finished = form.is_finished.data
+        job.categories.clear()
+        selected_category = db_sess.query(Category).get(form.category.data)
+        if selected_category:
+            job.categories.append(selected_category)
+
+        db_sess.commit()
+        return redirect('/')
+    return render_template('add_job.html', form=form)
+
+
+@app.route('/departments_delete/<int:id>', methods=['GET', 'POST'])
+@login_required
+def departments_delete(id):
+    db_sess = db_session.create_session()
+    dept = db_sess.query(Department).filter(Department.id == id).first()
+    if dept:
+        if dept.chief == current_user.id or current_user.id == 1:
+            db_sess.delete(dept)
+            db_sess.commit()
+        else:
+            db_sess.close()
+            abort(403)
+    else:
+        db_sess.close()
+        abort(404)
+    db_sess.close()
+    return redirect('/departments')
+
+@app.route('/jobs_delete/<int:id>', methods=['GET', 'POST'])
+@login_required
+def job_delete(id):
+    db_sess = db_session.create_session()
+    job = db_sess.query(Jobs).filter(Jobs.id == id).first()
+
+    if job:
+        if int(job.team_leader) == int(current_user.id) or int(current_user.id) == 1:
+            db_sess.delete(job)
+            db_sess.commit()
+        else:
+            abort(403)
+    else:
+        abort(404)
+    return redirect('/')
+
+
+@app.route('/departments')
+def list_departments():
+    db_sess = db_session.create_session()
+    departments = db_sess.query(Department).all()
+    return render_template('departments.html', departments=departments)
+
+
+@app.route('/add_department', methods=['GET', 'POST'])
+@login_required
+def add_department():
+    form = DepartmentForm()
+    db_sess = db_session.create_session()
+    users = db_sess.query(User).all()
+    form.chief.choices = [(u.id, f"{u.surname} {u.name}") for u in users]
+    if request.method == 'GET':
+        form.chief.data = current_user.id
+
+    if form.validate_on_submit():
+
+        if db_sess.query(Department).filter(Department.email == form.email.data).first():
+            return render_template('add_department.html',
+                                   form=form, message="Такой email уже зарегистрирован за другим отделом")
+
+        dept = Department(
+            title=form.title.data,
+            chief=form.chief.data,
+            members=form.members.data,
+            email=form.email.data
+        )
+        db_sess.add(dept)
+        db_sess.commit()
+        return redirect('/departments')
+
+    return render_template('add_department.html', form=form)
+
+
+@app.route('/departments/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_department(id):
+    form = DepartmentForm()
+    db_sess = db_session.create_session()
+    dept = db_sess.query(Department).filter(Department.id == id).first()
+
+    if not dept:
+        abort(404)
+
+    if int(dept.chief) != int(current_user.id) and int(current_user.id) != 1:
+        abort(403)
+
+    users = db_sess.query(User).all()
+    form.chief.choices = [(u.id, f"{u.surname} {u.name}") for u in users]
+
+    if request.method == "GET":
+        form.title.data = dept.title
+        form.chief.data = dept.chief
+        form.members.data = dept.members
+        form.email.data = dept.email
+
+    if form.validate_on_submit():
+        dept.title = form.title.data
+        dept.chief = form.chief.data
+        dept.members = form.members.data
+        dept.email = form.email.data
+        db_sess.commit()
+        return redirect('/departments')
+    return render_template('add_department.html', title='Editing Department', form=form)
 
 
 def main():
     db_session.global_init("db/mars_explorer.db")
     # init_data_users()
     # init_data_jobs()
+    # init_data_with_categories()
     app.run(port=8080, host='127.0.0.1')
 
 

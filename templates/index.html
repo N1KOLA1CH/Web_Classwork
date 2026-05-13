@@ -1,36 +1,55 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 align="center">Works log</h1>
+    <h1 align="center">Works log</h1>
+
+    <div class="mb-3">
+        {% if current_user.is_authenticated %}
+            <a href="/addjob" class="btn btn-secondary">Add job</a>
+            <a href="/departments" class="btn btn-secondary">View Departments</a>
+        {% endif %}
+    </div>
+
     {% for item in jobs %}
-    <div class="mt-3">
-        <h3>Action #{{ item.id }}</h3>
-        <table class="table table-striped border">
-            <thead class="table-secondary">
+        <div class="mt-3">
+            <h3>Action #{{ loop.index }}</h3>
+            <table class="table table-striped border">
+                <thead class="table-secondary">
                 <tr>
                     <th scope="col">Title of activity</th>
                     <th scope="col">Team leader</th>
                     <th scope="col">Duration</th>
                     <th scope="col">List of collaborators</th>
+                    <th scope="col">Hazard category</th>
                     <th scope="col">Is finished</th>
                 </tr>
-            </thead>
-            <tbody>
+                </thead>
+                <tbody>
                 <tr>
                     <td>{{ item.job }}</td>
-
                     <td>{{ item.user.surname }} {{ item.user.name }}</td>
                     <td>{{ item.work_size }} hours</td>
                     <td>{{ item.collaborators }}</td>
-                    
+                    <td>
+                        {% for cat in item.categories %}
+                            {{ cat.name }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
                     {% if item.is_finished %}
-                        <td class="table-success">Is finished</td>
+                        <td class="table-success">Finished</td>
                     {% else %}
                         <td class="table-danger">Is not finished</td>
                     {% endif %}
                 </tr>
-            </tbody>
-        </table>
-    </div>
+                </tbody>
+            </table>
+
+            {% if current_user.is_authenticated and (item.team_leader == current_user.id|int or current_user.id|int == 1) %}
+                <div class="mt-2">
+                    <a href="/jobs/{{ item.id }}" class="btn btn-warning btn-sm">Edit Job</a>
+                    <a href="/jobs_delete/{{ item.id }}" class="btn btn-danger btn-sm">Delete job</a>
+                </div>
+            {% endif %}
+        </div>
     {% endfor %}
 {% endblock %}

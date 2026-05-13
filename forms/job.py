@@ -10,6 +10,6 @@ class JobsForm(FlaskForm):
     collaborators = StringField('Collaborators', validators=[DataRequired()])
     start_date = DateTimeField('Start Date', format="%Y-%m-%dT%H:%M", validators=[Optional()])
     end_date = DateTimeField('End Date', format="%Y-%m-%dT%H:%M", validators=[Optional()])
-
+    category = SelectField('Hazard Category', coerce=int)
     is_finished = BooleanField('Is job finished?')
     submit = SubmitField('Submit')

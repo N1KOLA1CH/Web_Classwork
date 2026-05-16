@@ -27,3 +27,20 @@ form.login_form {
     border-radius: 5px;
     padding: 10px;
 }
+.nostalgy-box {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.info {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+.city {
+    font-size: 20px
+}
+.map-img {
+    border: 1px solid #ccc;
+    max-width: 100%;
+    height: auto;
+}

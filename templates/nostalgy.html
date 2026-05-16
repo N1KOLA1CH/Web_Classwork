@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <div class="nostalgy-box">
+            <div class="info fw-bold">Nostalgy</div>
+            <div class="info fw-bold">{{ user.name }} {{ user.surname }}</div>
+            <div class="city info fw-bold">Hometown: {{ user.city_from }}</div>
+            <img class="map-img" src="{{ map_url }}" alt="Карта города {{ user.city_from }}">
+        </div>
+    </div>
+{% endblock %}

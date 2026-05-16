@@ -1,12 +1,12 @@
-from flask import Flask, render_template, redirect, abort, request
+import requests
+from flask import Flask, render_template, redirect, abort, request, make_response, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
-from data import db_session
+from data import db_session, jobs_api, users_api
 from data.category import Category
 from data.departments import Department
 from data.jobs import Jobs
 from data.users import User
-from forms import job
 from forms.departament import DepartmentForm
 from forms.job import JobsForm
 from forms.login import LoginForm
@@ -43,6 +43,7 @@ def init_data_users():
     user.address = "module_1"
     user.email = "scott_chief@mars.org"
     user.hashed_password = "cap"
+    user.city_from = "Moscow"
 
     user1 = User(
         surname="Las",
@@ -52,7 +53,8 @@ def init_data_users():
         speciality="research engineer",
         address="module_1",
         email="las@mars.org",
-        hashed_password="jab")
+        hashed_password="jab",
+        city_from="Washington", )
 
     user2 = User(
         surname="Sco",
@@ -62,7 +64,8 @@ def init_data_users():
         speciality="research engineer",
         address="module_1",
         email="ssssf@mars.org",
-        hashed_password="hel")
+        hashed_password="hel",
+        city_from="Madrid")
 
     user3 = User(
         surname="Scott",
@@ -72,7 +75,8 @@ def init_data_users():
         speciality="research engineer",
         address="module_1",
         email="sc@mars.org",
-        hashed_password="password")
+        hashed_password="password",
+        city_from="Cheboksary")
 
     session.add(user)
     session.add(user1)
@@ -119,7 +123,8 @@ def reqister():
             age=form.age.data,
             position=form.position.data,
             speciality=form.speciality.data,
-            address=form.address.data
+            address=form.address.data,
+            city_from=form.city_from.data
         )
         user.set_password(form.password.data)
         db_sess.add(user)
@@ -150,6 +155,8 @@ def init_data_with_categories():
         if not all_jobs[3].categories:
             all_jobs[3].categories.append(all_cats[1])
         db_sess.commit()
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -262,6 +269,7 @@ def departments_delete(id):
     db_sess.close()
     return redirect('/departments')
 
+
 @app.route('/jobs_delete/<int:id>', methods=['GET', 'POST'])
 @login_required
 def job_delete(id):
@@ -347,11 +355,66 @@ def edit_department(id):
     return render_template('add_department.html', title='Editing Department', form=form)
 
 
+@app.errorhandler(404)
+def not_found(error):
+    return make_response(jsonify({'error': 'Not found'}), 404)
+
+
+@app.errorhandler(400)
+def bad_request(_):
+    return make_response(jsonify({'error': 'Bad Request'}), 400)
+
+
+@app.route('/users_show/<int:user_id>')
+def users_show(user_id):
+    response = requests.get(f'http://localhost:8080/api/users/{user_id}')
+    if not response or response.status_code == 404:
+        abort(404)
+
+    user_data = response.json().get('users')
+    city = user_data.get('city_from')
+
+    if not city:
+        return 'У данного колониста не указан родной город.'
+
+    geocoder_api_server = 'https://geocode-maps.yandex.ru/1.x/'
+    geocoder_params = {
+        'apikey': 'edfadee6-4727-487f-9a6c-130b10dc0514',
+        'geocode': city,
+        'format': 'json'
+    }
+
+    geo_response = requests.get(geocoder_api_server, params=geocoder_params)
+
+    if not geo_response or geo_response.status_code != 200:
+        return 'Ошибка геокодирования города.'
+
+    json_coord = geo_response.json()
+    features = json_coord['response']['GeoObjectCollection']['featureMember']
+    if not features:
+        return 'Город не найден на картах.'
+
+    toponym = features[0]['GeoObject']
+    toponym_cordinates = toponym['Point']['pos']
+    toponym_longitude, toponym_lattitude = toponym_cordinates.split(' ')
+
+    map_url = (
+        f'https://static-maps.yandex.ru/1.x/?'
+        f'll={toponym_longitude},{toponym_lattitude}&'
+        f'z=12&'
+        f'l=sat'
+    )
+
+    return render_template('nostalgy.html', user=user_data, map_url=map_url)
+
+
 def main():
     db_session.global_init("db/mars_explorer.db")
     # init_data_users()
     # init_data_jobs()
     # init_data_with_categories()
+    app.register_blueprint(jobs_api.blueprint)
+    app.register_blueprint(users_api.blueprint)
     app.run(port=8080, host='127.0.0.1')
 
 

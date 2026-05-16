@@ -1,12 +1,15 @@
 import requests
 from flask import Flask, render_template, redirect, abort, request, make_response, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from flask_restful import Api
 
 from data import db_session, jobs_api, users_api
 from data.category import Category
 from data.departments import Department
 from data.jobs import Jobs
+from data.jobs_resource import JobsResource, JobsListResource
 from data.users import User
+from data.users_resource import UsersListResource, UsersResource
 from forms.departament import DepartmentForm
 from forms.job import JobsForm
 from forms.login import LoginForm
@@ -14,6 +17,12 @@ from forms.user import RegisterForm
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
+api = Api(app)
+
+api.add_resource(UsersListResource, '/api/v2/users')
+api.add_resource(UsersResource, '/api/v2/users/<int:user_id>')
+api.add_resource(JobsListResource, '/api/v2/jobs')
+api.add_resource(JobsResource, '/api/v2/jobs/<int:job_id>')
 
 login_manager = LoginManager()
 login_manager.init_app(app)
